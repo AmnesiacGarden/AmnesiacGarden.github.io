@@ -297,7 +297,7 @@ h1, h2, h3, h4, h5, h6, figure {
   display: block;
 }
 .fh5co-navigation .fh5co-cover .copy .display-t, .fh5co-navigation .fh5co-cover .copy .display-tc {
-  height: 100px; /* xiu gai le di bu dao hang gao du */
+  height: 5px; /* xiu gai le di bu dao hang gao du */
   display: table;
   width: 100%;
 }
