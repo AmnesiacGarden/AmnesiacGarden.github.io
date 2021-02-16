@@ -1,4 +1,4 @@
-//带有load-enable使能，不带有reset的寄存器
+//锟斤拷锟斤拷load-enable使锟杰ｏ拷锟斤拷锟斤拷锟斤拷reset锟侥寄达拷锟斤拷
 module gnrl_dffl #(parameter width = 32) (
 input  clk,
 input  lden, 
