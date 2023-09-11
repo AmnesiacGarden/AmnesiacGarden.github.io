@@ -1,0 +1,313 @@
+<!DOCTYPE HTML>
+<html>
+	<head>
+	<title>单周期CPU</title>
+	<meta charset="utf-8">
+	<meta http-equiv="X-UA-Compatible" content="IE=edge">
+	<meta name="color-scheme" content="light only"/>
+    <meta name="description" content="AmnesiacGarden links"/>
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<link rel="icon" href="../img/0.png">
+	<link href="https://fonts.googleapis.com/css?family=Work+Sans:300,400,500,700,800" rel="stylesheet">
+	<link rel="stylesheet" href="../css/animate.css">
+	<link rel="stylesheet" href="../css/icomoon.css">
+	<link rel="stylesheet" href="../css/bootstrap.css">
+	<link rel="stylesheet" href="../css/style.css">
+	<script src="../js/modernizr-2.6.2.min.js"></script>
+	<script src="../js/jquery.min.js"></script>
+	<script src="../js/jquery.easing.1.3.js"></script>
+	<script src="../js/bootstrap.min.js"></script>
+	<script src="../js/jquery.waypoints.min.js"></script>
+	<script src="../js/jquery.stellar.min.js"></script>
+	<script src="../js/main.js"></script>
+
+	</head>
+	<body class="single">
+		
+	<div class="fh5co-loader"></div>
+	
+	<div id="page">
+		<div id="fh5co-aside" style="background-image: url(../img/SingleCPU/background.png)" data-stellar-background-ratio="0.5">
+			<div class="overlay"></div>
+			<nav role="navigation">
+				<ul>
+					<li><a href="../Welcome.html"><i class="icon-home"></i></a></li>
+				</ul>
+			</nav>
+			<div class="page-title">
+				<img src="../img/head.jpg" alt="Null">
+				<span>2021-02-14</span>
+				<h2>单周期CPU详解</h2>
+			</div>
+		</div>
+		<div id="fh5co-main-content">
+			<div class="fh5co-post"> 
+				<div class="fh5co-entry padding">
+					<div>
+					<h3>敲黑板！划重点！超详细的！你不会就真的说不过去！</h3>
+					<br>
+					<br>
+					<br>
+					<h4>---前排告示---</h4>
+					1.需要熟悉 Verilog Hdl 编程语言。
+					<br>2.需要熟悉 MIPS ISA 。
+					<br>3.需要熟悉 Quartus 工具以及代码编辑器(如VsCode)。
+					<br>4.本 CPU 不涉及 CP0 ，即不考虑例外与中断。
+					<br>
+					<br>
+					<h4>---特殊说明---</h4>
+					语法方面，本 CPU 主要使用 assign 语法替代 if-else 和 case 。(借鉴来源：蜂鸟E200处理器)
+					<br>这是由于语法 Verilog 中的 if-else 和 case 语法存在两大缺点。  
+					<br>1) 不能传播不定态。
+					<br>2) 会产生优先级 的选择电路而非并行选择电路，从而不利于时序和面积。   
+					<br>由于上述原因，在需要使用寄存器的地方，特别的模块化了三个寄存器模块。
+					<br>1) gnrl_dffl:带有 load-enable 使能，不带有 reset 的寄存器。<a href="../others/gnrl_dffl.v" download="gnrl_dffl.v">>>>gnrl_dffl.v</a>
+					<br>2) gnrl_dfflr:带有 load-enable 使能，带有异步 reset ，复位默认值为 0 的寄存器。<a href="../others/gnrl_dfflr.v" download="gnrl_dfflr.v">>>>gnrl_dfflr.v</a>
+					<br>3) gnrl_dffr:不带有 load-enable 使能，带有异步 reset ，复位默认值为 0 的寄存器。<a href="../others/gnrl_dffr.v" download="gnrl_dffr.v">>>>gnrl_dffr.v</a>
+					<br>
+					<br>
+					<h4>第一部分 指令集</h4>
+					&emsp;&emsp;先介绍一下指令，实现的指令有：add、sub、addi、and、or、slt、 sw、lw、beq 、j 10条指令。
+					<img src="../img/SingleCPU/type.png" height="386" width="772" />
+					<br>&emsp;&emsp;如上图所示所有指令长度均为32比特。本CPU实现的指令的格式均为寄存器型(R-Type)、立即数型(I-Type)和跳转型(J-Type)三种类型中的一种。下面逐一介绍 10 条指令的格式和功能描述。
+					<br> 
+					<br> ADD
+					<img src="../img/SingleCPU/add.png" height="105" width="845" />
+					<br> 汇编格式：ADD  rd, rs, rt 
+					<br> 功能描述：将寄存器 rs 的值与寄存器 rt 的值相加，结果写入寄存器 rd 中。
+					<br> 
+					<br>
+					<br> SUB
+					<img src="../img/SingleCPU/sub.png" height="105" width="845" />
+					<br> 汇编格式：SUB  rd, rs, rt 
+					<br> 功能描述：将寄存器 rs 的值与寄存器 rt 的值相减，结果写入 rd 寄存器中。 
+					<br> 
+					<br>
+					<br> ADDI
+					<img src="../img/SingleCPU/addi.png" height="105" width="845" />
+					<br> 汇编格式：ADDI  rt, rs, imm  
+					<br> 功能描述：将寄存器 rs 的值与有符号扩展至 32 位的立即数 imm 相加，结果写入 rt 寄存器中。  
+					<br> 
+					<br> 
+					<br> AND
+					<img src="../img/SingleCPU/and.png" height="105" width="845" />
+					<br> 汇编格式：AND  rd, rs, rt 
+					<br> 功能描述：寄存器 rs 中的值与寄存器 rt中的值按位逻辑与，结果写入寄存器 rd 中。
+					<br> 
+					<br> 
+					<br> OR
+					<img src="../img/SingleCPU/or.png" height="105" width="845" />
+					<br> 汇编格式：OR  rd, rs, rt 
+					<br> 功能描述：寄存器 rs 中的值与寄存器 rt中的值按位逻辑或，结果写入寄存器 rd 中。
+					<br> 
+					<br> 
+					<br> SLT
+					<img src="../img/SingleCPU/slt.png" height="105" width="845" />
+					<br> 汇编格式：SLT  rd, rt, rs 
+					<br> 功能描述：将寄存器 rs 的值与寄存器 rt 中的值进行有符号数比较，如果寄存器 rs 中的值小，则寄存器 rd 置 1；否则寄存器 rd置 0。
+					<br> 
+					<br> 
+					<br> SW
+					<img src="../img/SingleCPU/sw.png" height="105" width="845" />
+					<br> 汇编格式：SW  rt, offset(base) 
+					<br> 功能描述：将 base 寄存器的值加上符号扩展后的立即数 offset 得到访存的地址,据此虚地址将 rt 寄存器存入存储器中。 
+					<br> 
+					<br> 
+					<br> LW
+					<img src="../img/SingleCPU/lw.png" height="105" width="845" />
+					<br> 汇编格式：LW  rt, offset(base) 
+					<br> 功能描述：将 base 寄存器的值加上符号扩展后的立即数 offset 得到访存的地址，据此地址从存储器中读取连续 4 个字节的值，写入到 rt 寄存器中。
+					<br> 
+					<br> 
+					<br> BEQ
+					<img src="../img/SingleCPU/beq.png" height="105" width="845" />
+					<br> 汇编格式：BEQ  rs, rt, offset 
+					<br> 功能描述：如果寄存器 rs 的值等于寄存器 rt 的值则转移，否则顺序执行。转移目标由立即数 offset 左移 2 位并进行有符号扩展的值加上该分支指令对应的延迟槽指令的 PC 计算得到。
+					<br> 
+					<br> 
+					<br> J  
+					<br><img src="../img/SingleCPU/j.png" height="105" width="845" />
+					<br> 汇编格式：J  target 
+					<br> 功能描述：无条件跳转。跳转目标由该分支指令对应的延迟槽指令的 PC 的最高 4 位与立即数 instr_index 左移 2 位后的值拼接得到。
+					<br> 
+					<br> 
+					<h4>第二部分 架构实现</h4>
+					&emsp;&emsp;知道了指令集和指令格式之后，接下来了解 CPU 架构。以经典五级流水线 CPU 为例，一条指令的执行需要经过至多五个操作，分别是取指、译码、执行、访存、回写，而单周期指令 CPU 也是需要经历这五步，只是一条指令在一个时钟周期内就完成。所以我们就可以知道了每个部分都需要那些模块。
+					<br>
+					<br>取值：程序计数器(PC)、指令存储器(Instmem)
+					<br>译码：主控制器(Control)、译码器(Decode)
+					<br>执行：运算器(ALU)
+					<br>访存：数据存储器(Datamem)
+					<br>回写：寄存器堆(regfile)
+					<br>
+					<br>&emsp;&emsp;接下来，我们就可以根据所需实现指令就可以画出数据通路和控制通路。如下图，当然，我们只要知道了对应模块具体的功能和如何实现，那么我们面对所有的已提供数据通路的 CPU 框架图，都可以直接开始实现该 CPU。
+					<br><img src="../img/SingleCPU/cpu.png" height="484" width="821" />
+					<br>
+					<br>&emsp;&emsp;从左至右依次实现每个模块。这里需要说明一下，数据和指令存储器实际实现的时候是不包含在 CPU 里的，这里的图解架构是为了更好的体现其位置和易于理解。
+					<br>
+					<br>
+					<h3>PC</h3>
+					&emsp;&emsp;PC 模块的功能是给出 CPU 取值时所需要的地址，在本 CPU 中，实现了 BEQ 和 J 指令，所以输入端除开顺序执行的 PC 值之外还应有两个跳转指令的 PC 值输入以及对应的控制选择信号。
+					<br>
+					<br><img src="../img/SingleCPU/pcsign.png" height="253" width="799" />
+					<br>
+					<br>&emsp;&emsp;接下来就是主要代码的。PC 的功能很单一，即只需要判断从哪一个来源选择并在每个时钟到来的时候进行输出即可。这里通过一个三目运算符选择判断，当 nxt_sel_b 为 1 时，选择 br_value；当 nxt_sel_j 为 1 时，选择 j_value ，否则选择 ord_value 即表示顺序执行。
+					<br><img src="../img/SingleCPU/pccode1.png" height="65" width="500" />
+					<br>
+					<br>&emsp;&emsp;然后我们通过 gnrl_dffr 模块将次地址值输出，这样 PC 模块就完成了。
+					<br><img src="../img/SingleCPU/pccode2.png" height="35" width="635" />
+					<br>
+					<br>&emsp;&emsp;下面是 PC 模块代码
+					<br><img src="../img/SingleCPU/pccode.png" height="480" width="660" />
+					<br>
+					<br>
+					<h3>ControlUnit</h3>
+					&emsp;&emsp;主控制器完成的功能是通过对指令的解码，分析得到该指令对应的控制信号并输出给各个模块从而使得该指令能够正确执行。
+					<br>
+					<br><img src="../img/SingleCPU/ctrlsign.png" height="248" width="816" />
+					<br>
+					<br>&emsp;&emsp;首先，我们通过第一部分的指令类型就可以知道，根据前 6 位的操作码 opcode 和后 6 位的功能码 function 就可以判断出对应的指令。所以先通过这个来判断指令，代码如下，以 add 指令为例，若 opcode = 000000 且 fc = 100000 那么这条指令就是 add 指令，同时 add_req 信号就会为1。
+					<br><img src="../img/SingleCPU/ctrlcode1.png" height="300" width="500" />
+					<br>
+					<br>&emsp;&emsp;然后我们再对每个信号做出判断。根据每个信号功能的不同对应的信号也是不一样的。
+					<br>MemtoReg 信号，只有 lw 指令会需要将数据存储器的值回写到寄存器中，所以当且仅当指令为 lw 指令时该信号为1。
+					<br>MemWrite 信号，只有 sw 指令会将寄存器中的值写入到数据存储器中，所以当且仅当指令为 sw 指令时该信号为1。
+					<br>Branch 信号，指令 beq 的判断信号，提供给 PC 用以判断是否需要进行该跳转，当且仅当指令为 beq 指令时该信号为1。
+					<br>Jump 信号，指令 j 的判断信号，提供给 PC 用以判断是否需要进行该跳转，当且仅当指令为 j 指令时该信号为1。
+					<br>ALUSrc 信号，只有 addi sw lw 三条指令需要使用立即数在ALU内进行操作。当指令为这三条指令其一时该信号为1。
+					<br>RegDst 信号，由于 addi sw lw 三条指令的结构，回写寄存器索引位置也不同，当指令为这三条指令其一时该信号为1。
+					<br>RegWirte 信号，指令中 sw beq j 三条指令不需要回写寄存器，当指令为这三条指令其一时该信号为0。
+					<br><img src="../img/SingleCPU/ctrlcode2.png" height="256" width="664" />
+					<br>
+					<br>&emsp;&emsp;最后我们还需要提供进入 ALU 之后需要的操作是什么运算，所以还需要进行一个操作判断。具体的操作类型在 ALU 模块中给出。
+					<br><img src="../img/SingleCPU/ctrlcode3.png" height="245" width="465" />
+					<br>
+					<br>&emsp;&emsp;下面是 Control 模块代码
+					<br><img src="../img/SingleCPU/ctrl.png" height="1374" width="848" />
+					<br>
+					<br>
+					<h3>Regfile</h3>
+					&emsp;&emsp;寄存器，是 CPU 中的一个寄存器堆，一共有 32 个。寄存器需要注意的地方就是，在 MIPS 架构中规定 0 号寄存器输出始终为 0 ，写该寄存器不对其有影响。
+					<br><img src="../img/SingleCPU/regsign.png" height="208" width="506" />
+					<br>
+					<br>这里给出两种寄存器的实现方法，注释的部分代码为实现方法一，这样的实现方法通俗易懂，也更直观的展现其性质。
+					<br><img src="../img/SingleCPU/regcode.png" height="973" width="680" />
+					<br>
+					<br>
+					<h3>ALU</h3>
+					&emsp;&emsp;ALU 是 CPU 核心的部件，进行操作数的运算，然后输出结果供其他部分使用。
+					<br><img src="../img/SingleCPU/alusign.png" height="139" width="506" />
+					<br>
+					<br>&emsp;&emsp;根据需要实现的指令，我们在进行操作之前还需要判断是何种操作。ALU 的操作分为了以下几个操作，分别是加、减、与、或、比较。这里不难看出这几个操作对应的指令分别是 add sub and or slt 指令，对于剩下的指令我们分别说明。
+					<br>addi: 该指令是 add 指令的变体，所以使用加操作。
+					<br>sw lw: 两条指令 需要 ALU 模块计算出相对应的地址，所以使用加操作。
+					<br>j: 该指令是无条件跳转，所以不进入 ALU 模块进行相关操作。
+					<br>beq: 该指令是判断两个操作数是否相等，本 CPU 使用减操作。(对于实现其实有两种，一是操作数相减，二是操作数相或，结果为 0 则表示相等)
+					<br><img src="../img/SingleCPU/alucode1.png" height="130" width="510" />
+					<br>
+					<br>&emsp;&emsp;接下来就是将输入的两个操作数进行运算。
+					<br><img src="../img/SingleCPU/alucode2.png" height="272" width="816" />
+					<br>
+					<br>&emsp;&emsp;最后进行选择输出，下面的这种选择器实现方法是很好用的一种，它不会存在优先级。建议运用该方法在不需要优先级的选择时使用。
+					<br><img src="../img/SingleCPU/alucode3.png" height="115" width="600" />
+					<br>
+					<br>&emsp;&emsp;下面是ALU模块代码
+					<br><img src="../img/SingleCPU/alucode.png"  height="880" width="816" />
+					<br>
+					<br>&emsp;&emsp;那么，至此呢整个 CPU 的主要模块就已经实现了(除指令、数据存储器)。接下来就需要实现 CPU 的顶层，即对各个模块进行封装和连接，并且将剩余的数据通路和控制逻辑完善。
+					<br>&emsp;&emsp;看到这里可能会有些疑惑，例如移位模块、Add 模块、二选一多路选择器等模块还未介绍和实现。是的，一般都会将这些模块进行封装，并且还可以复用，使得其调用非常方便。但我们也可以直接将其中的代码语句至于顶层逻辑之中，原因是，对于本 CPU 这些模块逻辑非常简单，特别是数据扩展模块，只需要一种符号扩展。再者，这样可以减少信号以及模块的例化和多的命名等。(其实你说是偷懒也不是不可以，哈哈哈)
+					<br><img src="../img/SingleCPU/cpucode1.png" height="364" width="536" />
+					<br>
+					<br>&emsp;&emsp;逐一解释一下，前 6 行代码是将从指令存储器取得的指令进行拆分。
+					<br>&emsp;&emsp;接下来 4 行代码分别是顺序地址、j指令跳转地址、beq 指令地址，花括号表示的是将逗号分隔的数据进行拼接，这个拼接结果具体的参考第一部分相关指令描述。结构图中的2位移位器已经在其中完成了。
+					<br>&emsp;&emsp;再接下来 1 行代码是寄存器回写索引号选择。
+					<br>&emsp;&emsp;然后 1 行是 16 位立即数的符号位扩展。
+					<br>&emsp;&emsp;再 1 行就是对进入 ALU 的数据选择，是使用寄存器输出还是立即数。
+					<br>&emsp;&emsp;最后这 1 行是对寄存器回写数据做出判断。
+					<br>&emsp;&emsp;这里需要注意的地方是这个三目运算符的使用，当 ? 前的判断值为 1 时，选择的值时 ： 前的值，否则是后值。还有就是关于 wire 后直接跟着逻辑语句，这个写法其实是一个隐式语句，就是将 wire assign 两个语句结合在一起实现。
+					<br>
+					<br>&emsp;&emsp;下面是 CPU 顶层代码。
+					<br>&emsp;&emsp;这里输出输入信号意思如名很容易理解，因为指令、数据存储器并不在这个顶层所以需要将相关信号拉出由外部输入，对外部输出。对照 CPU 结构图可以很清晰的看出相关信号。最后在 Quartus 软件中可以得到对应的 RTL 图。
+					<br><img src="../img/SingleCPU/cpucode.png" height="2392" width="828" />
+					<br>
+					<br><img src="../img/SingleCPU/cpurtl.png" height="541" width="872" />
+					<br>
+					<br>
+					<h4>第三部分 测试</h4>
+					&emsp;&emsp;前面第二部分，我们就已经将 CPU 整体实现了，现在就已经可以仿真测试功能了。下面给出了一段汇编代码，我们根据这段汇编代码，将指令写入数据存储器中，然后使用 Testbench 文件进行仿真，对照 ModelSim 的仿真图查看信号值。
+					<br>
+					<br>&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp; Assembly&emsp;&emsp;&emsp;&emsp;&emsp;&emsp; Descript1on&emsp;&emsp;&emsp;&emsp;Address&emsp;&emsp;&emsp;Machine
+					<br>main：&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;addi $2, $0, 5 &emsp;&emsp;&emsp;&emsp;# $2 = 5 &emsp;&emsp;&emsp;&emsp;&emsp; 0 &emsp;&emsp;&emsp;&emsp;&emsp;&emsp;20020005
+					<br>&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp; addi $3, $0, 12&emsp;&emsp;&emsp;&emsp;# $3 = 12 &emsp;&emsp;&emsp;&emsp;&emsp;4 &emsp;&emsp;&emsp;&emsp;&emsp;&emsp;2003000C
+					<br>&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp; addi $7, $3, -9&emsp;&emsp;&emsp;&emsp;# $7 = 3 &emsp;&emsp;&emsp;&emsp;&emsp; 8 &emsp;&emsp;&emsp;&emsp;&emsp;&emsp;2067fff7
+					<br>&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp; or &emsp;$4, $7, $2&emsp;&emsp;&emsp;&emsp;# $4 = 7 &emsp;&emsp;&emsp;&emsp;&emsp; C &emsp;&emsp;&emsp;&emsp;&emsp;&emsp;00e22025
+					<br>&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp; and&ensp;$5, $3, $4&emsp;&emsp;&emsp;&ensp; # $5 = -4 &ensp;&emsp;&emsp;&emsp;&emsp; 10&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;00642824
+					<br>&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp; add&ensp;$5, $5, $4&emsp;&emsp;&emsp;&ensp; # $5 = 11&ensp;&ensp;&ensp;&emsp;&emsp;&emsp;&emsp;14&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;00a42820
+					<br>&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp; beq $5, $7, end&emsp;&emsp;&emsp;&ensp;# Not&ensp;executed&ensp;&ensp;&emsp;18&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;10a7000a
+					<br>&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&ensp;&ensp; slt &ensp;$4, $3, $4&ensp;&emsp;&emsp;&emsp;&ensp;# $4 = 0 &ensp;&ensp;&emsp;&emsp;&emsp;&emsp; 1C&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;0064202a
+					<br>&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp; beq $4, $0, around &ensp;&ensp;&ensp;# &ensp;Executed&ensp;&ensp;&ensp;&ensp;&ensp;&emsp;20&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;10800001
+					<br>&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp; addi $5, $0, 0&emsp;&emsp;&emsp;&ensp;&ensp;&ensp;# Not happen&ensp;&emsp;&emsp; 24&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;20050000
+					<br>around：&emsp;&emsp;&emsp;&emsp;&emsp;slt&ensp;&ensp;$4, $7, $2&ensp;&ensp;&emsp;&emsp;&emsp;# $4 = 1 &emsp;&emsp;&emsp;&emsp;&emsp;&ensp;28&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;00e2202a
+					<br>&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp; add $7, $4, $5 &emsp;&emsp;&ensp;&ensp;&ensp; # $7 = 12 &emsp;&emsp;&emsp;&emsp;&emsp;2C&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;00853820
+					<br>&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp; sub $7, $7,&ensp;$2 &emsp;&emsp;&ensp;&ensp;&ensp; # $7 = 7 &emsp;&emsp;&emsp;&emsp;&emsp;&ensp;30&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;00e23822
+					<br>&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp; sw&ensp; $7, 68($3) &emsp;&emsp;&emsp;&ensp; # [80] = 7&ensp;&emsp;&emsp;&emsp;&emsp;&ensp;34&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;ac670044
+					<br>&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp; lw&emsp;$2, 80($0) &emsp;&emsp;&emsp;&ensp; # $2 = [80] = 7 &emsp;&emsp;38&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;8C020050
+					<br>&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp; J&ensp;&ensp;&ensp;end&emsp;&emsp;&emsp;&emsp;&ensp;&ensp;&ensp;&ensp;&ensp;&ensp; # &ensp;Executed&ensp;&ensp;&ensp;&ensp;&ensp;&ensp; 3C&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;08000011
+					<br>&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp; addi $2, $0, 1&emsp;&emsp;&ensp;&ensp;&ensp;&ensp;&ensp; # Not happen&ensp;&emsp;&emsp; 40&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;20020001
+					<br>end：&emsp;&emsp;&emsp;&emsp;&emsp;&emsp; sw &emsp;$2, 84($0)&emsp;&emsp;&emsp;&ensp; # [84] = 7&emsp;&emsp;&emsp;&emsp;&emsp;44&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;ac020054
+					<br>
+					<br>
+					<br>&emsp;&emsp;下面分别给出指令存储器和数据存储器的实现代码，难的地方只在于指令存储器中 $readmemh 的使用，这里需要提供的是 16 进制文件。<a href="../others/ins.txt" download="ins.txt">>>>ins.txt</a>
+					<br><img src="../img/SingleCPU/instmem.png" height="404" width="828" />
+					<br>
+					<br><img src="../img/SingleCPU/datamem.png" height="392" width="828" />
+					<br>
+					<br>&emsp;&emsp;实际上在 Testbench 中例化多个模块是不太合适的，ModelSim 也是无法解析的。所以还需要在对 CPU、Instmem、Datamem 三个模块再用一个顶层进行封装，如下图。
+					<br><img src="../img/SingleCPU/core.png" height="1010" width="840" />
+					<br>
+					<br>&emsp;&emsp;至此一个完整的 CPU 就已经成型了，接下来就是编写 Testbench 进行仿真测试了。下图中的 Testbench 主体分为四个部分，首先是对 core 进行例化，这也是常说的 DUT。然后的三个 initial 语句分别是提供时钟，自动化校验和控制运行。再自动校验部分使用的是 wait 语句和 $display 功能是当等待到括号能条件成立时执行显示语句，将对应语句显示在屏幕上。
+					<br><img src="../img/SingleCPU/tb.png" height="706" width="883" />
+					<br>
+					<br>&emsp;&emsp;简单介绍一下仿真的流程。在 Quartus 中完成工程创建，编译通过之后，需要按照下面的流程给该工程添加 Testbench 文件。
+					<br><img src="../img/SingleCPU/q.png" height="506" width="873" />
+					<br>
+					<br>&emsp;&emsp;还需要的步骤是将 ModelSim 工具的文件目录按照步骤进行添加。另外工具栏中的 RTL simulation 按钮也需要主动勾选显示。
+					<br><img src="../img/SingleCPU/q2.png" height="598" width="788" />
+					<br>
+					<br>&emsp;&emsp;当你完成以上步骤之后，点击 RTL simulation 按钮就会开启仿真并转跳至 ModelSim 工具页面。简单的运行之后，当我们看到 ModelSim 的波形图和信息栏中显示显示如下，说明 CPU 运行上述汇编代码完全正确，也就是 CPU 功能验证通过！恭喜你完成了一个简单的单周期 CPU 的设计与实现！
+					<br>
+					<br><img src="../img/SingleCPU/sim.png" height="516" width="861" />
+					<br>
+					<br><img src="../img/SingleCPU/sim2.png" height="460" width="840" />
+					<br>
+					<br>
+					<h4>第四部分 疑难杂症</h4>
+					&emsp;&emsp;有什么问题其实都忘了。记住 Rst 信号，当时使用的是 negedge 时，一定注意高低电平，不然可能会出现 PC 爬不起来(一生之敌啊，总是会莫名其妙遇到它跑不了)。在该 CPU 中所有的寄存器都没有初值，所以 Testbench 中一定需要有一个模拟按键过程，不然也会出现仿真全红。
+					<br>&emsp;&emsp;如果有其它问题或者项目都可以找我，如果你想打赏一下的话点一下下面的按钮，你懂的~。
+					<br>
+					<br>
+					<br>
+					<br>
+					<br>
+					<br><a href="../img/payday.png"> <img src="../img/pay.png"/> </a>
+					<br>
+					<br>
+				</div>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<footer>
+		<div>
+			Copyright &copy; 2023.Amnesiac
+		</div>
+	</footer>
+
+	<div class="gototop js-top">
+		<a href="#" class="js-gotop"><i class="icon-arrow-up"></i></a>
+	</div>
+
+	</body>
+</html>
+
